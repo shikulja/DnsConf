@@ -1,15 +1,16 @@
 package com.novibe.common.util;
 
-import java.util.Optional;
+import com.novibe.common.base_structures.HostsLine;
+import org.jspecify.annotations.Nullable;
+
+import java.net.InetAddress;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class DataParser {
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
-
-    public record HostsLine(String ip, String domain) {
-    }
+    private static final Pattern EOL = Pattern.compile("\\r?\\n");
 
     public static String removeWWW(String domain) {
         if (domain.startsWith("www.")) {
@@ -19,23 +20,29 @@ public class DataParser {
     }
 
     public static boolean isComment(String line) {
-        return line.stripLeading().startsWith("#");
+        return line.startsWith("#");
     }
 
-    public static Optional<HostsLine> parseHostsLine(String line) {
-        String sanitizedLine = stripInlineComment(line).strip();
+    public static @Nullable HostsLine parseHostsLine(String line) {
+        String sanitizedLine = stripInlineComment(line);
         if (sanitizedLine.isBlank()) {
-            return Optional.empty();
+            return null;
         }
         String[] columns = WHITESPACE.split(sanitizedLine, 3);
-        if (columns.length < 2 || columns[1].isBlank()) {
-            return Optional.empty();
+        if (columns.length == 1) {
+            String value = columns[0];
+            return isValidIP(value) ? HostsLine.ipOnly(value) : HostsLine.domainOnly(removeWWW(value));
+        } else if (columns.length == 2) {
+            String ip = columns[0];
+            String domain = removeWWW(columns[1]);
+            return isValidIP(ip) ? new HostsLine(ip, domain) : null;
         }
-        return Optional.of(new HostsLine(columns[0], columns[1]));
+        Log.fail("Failed to parse hosts line: " + line);
+        return null;
     }
 
     public static Stream<String> splitByEol(String data) {
-        return Pattern.compile("\\r?\\n").splitAsStream(data);
+        return EOL.splitAsStream(data);
     }
 
     private static String stripInlineComment(String line) {
@@ -43,6 +50,14 @@ public class DataParser {
         if (commentIndex >= 0) {
             return line.substring(0, commentIndex);
         }
-        return line;
+        return line.strip();
+    }
+
+    private static boolean isValidIP(String ip) {
+        try {
+            return !InetAddress.ofLiteral(ip).getHostAddress().isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -1,6 +1,6 @@
 package com.novibe.common.data_sources;
 
-import com.novibe.common.util.DataParser;
+import com.novibe.common.base_structures.HostsLine;
 import org.springframework.stereotype.Service;
 
 import java.util.function.Predicate;
@@ -17,25 +17,13 @@ public class HostsBlockListsLoader extends ListLoader<String> {
     }
 
     @Override
-    protected Predicate<String> filterRelatedLines() {
-        return line -> DataParser.parseHostsLine(line)
-                .filter(hostsLine -> isBlockIp(hostsLine.ip()))
-                .filter(hostsLine -> !isLocalhost(hostsLine.domain()))
-                .isPresent();
+    protected Predicate<HostsLine> filterRelatedLines() {
+        return line -> isBlockIp(line.ip()) && !isLocalhost(line.domain());
     }
 
     @Override
-    protected String toObject(String line) {
-        DataParser.HostsLine hostsLine = DataParser.parseHostsLine(line)
-                .orElseThrow(() -> new IllegalArgumentException("Malformed hosts entry: " + line));
-        return DataParser.removeWWW(hostsLine.domain());
-    }
-
-    public static boolean isBlock(String line) {
-        return DataParser.parseHostsLine(line)
-                .map(DataParser.HostsLine::ip)
-                .filter(HostsBlockListsLoader::isBlockIp)
-                .isPresent();
+    protected String toObject(HostsLine line) {
+        return line.domain();
     }
 
     static boolean isBlockIp(String ip) {

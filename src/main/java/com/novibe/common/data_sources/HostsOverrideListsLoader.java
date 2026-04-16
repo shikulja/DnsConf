@@ -1,9 +1,11 @@
 package com.novibe.common.data_sources;
 
-import com.novibe.common.util.DataParser;
+import com.novibe.common.base_structures.HostsLine;
 import org.springframework.stereotype.Service;
 
 import java.util.function.Predicate;
+
+import static java.util.Objects.nonNull;
 
 @Service
 public class HostsOverrideListsLoader extends ListLoader<HostsOverrideListsLoader.BypassRoute> {
@@ -17,18 +19,15 @@ public class HostsOverrideListsLoader extends ListLoader<HostsOverrideListsLoade
     }
 
     @Override
-    protected Predicate<String> filterRelatedLines() {
-        return line -> DataParser.parseHostsLine(line)
-                .map(DataParser.HostsLine::ip)
-                .filter(ip -> !HostsBlockListsLoader.isBlockIp(ip))
-                .isPresent();
+    protected Predicate<HostsLine> filterRelatedLines() {
+        return line -> !HostsBlockListsLoader.isBlockIp(line.ip()) && nonNull(line.domain());
+
     }
 
     @Override
-    protected BypassRoute toObject(String line) {
-        DataParser.HostsLine hostsLine = DataParser.parseHostsLine(line)
-                .orElseThrow(() -> new IllegalArgumentException("Malformed hosts entry: " + line));
-        return new BypassRoute(hostsLine.ip(), DataParser.removeWWW(hostsLine.domain()));
+    protected BypassRoute toObject(HostsLine line) {
+        return new BypassRoute(line.ip(), line.domain());
+
     }
 
 }
